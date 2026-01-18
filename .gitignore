@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+.env
+google_credentials.json
+
+.vscode/
+.idea/
+.DS_Store
