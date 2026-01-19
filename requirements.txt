@@ -4,3 +4,5 @@ langgraph
 python-dotenv
 pydantic
 google-auth
+fastapi
+uvicorn
