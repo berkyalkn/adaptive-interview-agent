@@ -26,6 +26,7 @@ class ChatResponse(BaseModel):
     response_text: str
     interview_step: int
     is_finished: bool
+    feedback: Optional[str] = None
 
 
 def convert_to_langchain_messages(schemas: List[MessageSchema]):
@@ -56,22 +57,26 @@ async def chat_endpoint(request: ChatRequest):
         }
         
         output = workflow.invoke(current_state)
+
+        last_msg = output["messages"][-1]
         
-        ai_msg = output["messages"][-1]
-        
-        ai_content = ai_msg.content
+        ai_content = last_msg.content
         ai_text = ""
         if isinstance(ai_content, list):
             ai_text = ai_content[0].get("text", "")
         else:
             ai_text = str(ai_content)
+
+        
+        feedback_text = output.get("feedback", None)
             
-        is_finished = "INTERVIEW_FINISHED" in ai_text
+        is_finished = feedback_text is not None or "INTERVIEW_FINISHED" in ai_text
         
         return ChatResponse(
             response_text=ai_text,
             interview_step=output["interview_step"],
             is_finished=is_finished
+            feedback=feedback_text
         )
 
     except Exception as e:
@@ -79,4 +84,4 @@ async def chat_endpoint(request: ChatRequest):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "active", "service": "mock-master-ai"}
+    return {"status": "active", "service": "adaptive-interview-agent"}
