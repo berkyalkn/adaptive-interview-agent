@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List
+from typing import TypedDict, Annotated, List, Optional
 from langchain_core.messages import BaseMessage
 import operator
 
@@ -9,4 +9,4 @@ class InterviewState(TypedDict):
     messages: Annotated[List[BaseMessage], operator.add] 
     job_role: str       
     interview_step: int 
-    feedback: str       
+    feedback: Optional[str]      

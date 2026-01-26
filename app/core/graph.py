@@ -1,4 +1,4 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, HarmCategory
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 
@@ -12,59 +12,95 @@ credentials = service_account.Credentials.from_service_account_file(
     scopes=["https://www.googleapis.com/auth/cloud-platform"],
 )
 
+safety_settings = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
 
 llm = ChatGoogleGenerativeAI(
     model=Config.AGENT_MODEL_NAME,
     credentials=credentials, 
     project=Config.PROJECT_ID,
-    temperature=Config.TEMPERATURE,
-    max_output_tokens=1024,
-    location="global",  
+    temperature=0.7,
+    max_output_tokens=2048,
+    location="global",
+    safety_settings=safety_settings
 )
 
 def start_interview(state: InterviewState):
-
     role = state["job_role"]
     initial_msg = f"Hello! Welcome to the interview for the {role} position. Let's get started. Could you please briefly introduce yourself?"
     return {"messages": [AIMessage(content=initial_msg)], "interview_step": 0}
 
-def generate_question(state: InterviewState):
-
+def run_interviewer_agent(state: InterviewState):
     role = state["job_role"]
-    step = state["interview_step"] + 1
+    current_step = state.get("interview_step", 0)
+    step = current_step + 1
     messages = state["messages"]
 
-    system_msg = INTERVIEWER_SYSTEM_PROMPT.format(role=role, step=step)
-    prompt = [SystemMessage(content=system_msg)] + messages
+    if step > 4:
+        bye_system_msg = """
+        The candidate has answered all 4 questions.
+        Your goal is ONLY to end the session politely.
+        INSTRUCTIONS:
+        1. Thank the candidate briefly.
+        2. DO NOT summarize.
+        3. APPEND EXACTLY: "INTERVIEW_FINISHED" to the end.
+        """
+        prompt = [SystemMessage(content=bye_system_msg)] + messages
+    else:
+        system_msg = INTERVIEWER_SYSTEM_PROMPT.format(role=role, step=step)
+        prompt = [SystemMessage(content=system_msg)] + messages
     
-    response = llm.invoke(prompt)
-    
+    try:
+        response = llm.invoke(prompt)
+    except Exception as e:
+        print(f"LLM Error: {e}")
+        response = AIMessage(content="I apologize, I missed that. Could you please repeat? (System Error)")
+
     return {"messages": [response], "interview_step": step}
 
-def generate_feedback(state: InterviewState):
-    """Final evaluation."""
+
+def run_evaluator_agent(state: InterviewState):
     role = state["job_role"]
     messages = state["messages"]
     
-    system_msg = EVALUATOR_SYSTEM_PROMPT.format(role=role)
-    prompt = [SystemMessage(content=system_msg)] + messages
+    transcript = "--- INTERVIEW TRANSCRIPT START ---\n"
+    for msg in messages:
+        sender = "Interviewer" if isinstance(msg, AIMessage) else "Candidate"
+        content = msg.content
+        if isinstance(content, list):
+            content = "".join([item.get("text", "") for item in content if isinstance(item, dict)])
+        transcript += f"{sender}: {content}\n"
+    transcript += "--- INTERVIEW TRANSCRIPT END ---"
+
+    evaluator_prompt = [
+        SystemMessage(content=EVALUATOR_SYSTEM_PROMPT.format(role=role)),
+        HumanMessage(content=f"Please analyze the following interview transcript:\n\n{transcript}")
+    ]
     
-    response = llm.invoke(prompt)
-    
-    content = response.content
-    clean_text = ""
-    if isinstance(content, list):
-        clean_text = content[0].get("text", "")
-    else:
-        clean_text = str(content)
-        
+    try:
+        response = llm.invoke(evaluator_prompt)
+        content = response.content
+        clean_text = ""
+        if isinstance(content, list):
+            clean_text = content[0].get("text", "")
+        else:
+            clean_text = str(content)
+            
+        if not clean_text.strip():
+            clean_text = "Report generated but content was empty."
+            
+    except Exception as e:
+        clean_text = f"Report generation failed. Error: {str(e)}"
+
     return {"feedback": clean_text}
 
 
 def route_step(state: InterviewState):
-    """Is interview over or continue ?"""
     last_msg = state["messages"][-1]
-    
     content = last_msg.content
     if isinstance(content, list):
         text = content[0].get("text", "")
@@ -72,7 +108,7 @@ def route_step(state: InterviewState):
         text = str(content)
     
     if "INTERVIEW_FINISHED" in text:
-        return "feedback"
+        return "evaluator"
     return END
 
 def route_to_start(state: InterviewState):
@@ -80,13 +116,12 @@ def route_to_start(state: InterviewState):
         return "start"
     return "interviewer"
 
-
 def build_graph():
     workflow = StateGraph(InterviewState)
     
     workflow.add_node("start", start_interview)
-    workflow.add_node("interviewer", generate_question)
-    workflow.add_node("feedback", generate_feedback)
+    workflow.add_node("interviewer", run_interviewer_agent)
+    workflow.add_node("evaluator", run_evaluator_agent)
     
     workflow.set_conditional_entry_point(
         route_to_start,
@@ -102,14 +137,11 @@ def build_graph():
         "interviewer",
         route_step,
         {
-            "feedback": "feedback",
+            "evaluator": "evaluator",
             END: END
         }
     )
     
-    workflow.add_edge("feedback", END)
+    workflow.add_edge("evaluator", END)
     
     return workflow.compile()
-
-
-
