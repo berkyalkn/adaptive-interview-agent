@@ -1,8 +1,0 @@
-langchain
-langchain-google-genai
-langgraph
-python-dotenv
-pydantic
-google-auth
-fastapi
-uvicorn

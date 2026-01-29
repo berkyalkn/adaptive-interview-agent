@@ -2,13 +2,13 @@ version: '3.8'
 
 services:
   api:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: ai-interview-backend
     ports:
       - "8000:8000"
     volumes:
-      - .:/app  
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google_credentials.json
-      - GOOGLE_CLOUD_PROJECT=adaptive-interview-agent
+      - ./backend:/app  
+    env_file:
+      - ./backend/.env
