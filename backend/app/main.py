@@ -27,6 +27,7 @@ class MessageSchema(BaseModel):
 
 class ChatRequest(BaseModel):
     job_role: str
+    company_context: str = "General Tech"
     user_input: Optional[str] = None 
     messages: List[MessageSchema] = [] 
     interview_step: int = 0
@@ -69,6 +70,7 @@ async def chat_endpoint(request: ChatRequest):
         current_state = {
             "messages": history,
             "job_role": request.job_role,
+            "company_context": request.company_context,
             "interview_step": request.interview_step,
             "feedback": ""
         }

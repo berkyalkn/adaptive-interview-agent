@@ -31,11 +31,13 @@ llm = ChatGoogleGenerativeAI(
 
 def start_interview(state: InterviewState):
     role = state["job_role"]
-    initial_msg = f"Hello! Welcome to the interview for the {role} position. Let's get started. Could you please briefly introduce yourself?"
+    context = state.get("company_context", "General Tech")
+    initial_msg = f"Hello! Welcome to the interview for the {role} position at our {context} company. Let's get started. Could you please briefly introduce yourself?"
     return {"messages": [AIMessage(content=initial_msg)], "interview_step": 0}
 
 def run_interviewer_agent(state: InterviewState):
     role = state["job_role"]
+    context = state.get("company_context", "General Tech")
     current_step = state.get("interview_step", 0)
     step = current_step + 1
     messages = state["messages"]
@@ -51,7 +53,7 @@ def run_interviewer_agent(state: InterviewState):
         """
         prompt = [SystemMessage(content=bye_system_msg)] + messages
     else:
-        system_msg = INTERVIEWER_SYSTEM_PROMPT.format(role=role, step=step)
+        system_msg = INTERVIEWER_SYSTEM_PROMPT.format(role=role, step=step, context=context)
         prompt = [SystemMessage(content=system_msg)] + messages
     
     try:
@@ -65,6 +67,7 @@ def run_interviewer_agent(state: InterviewState):
 
 def run_evaluator_agent(state: InterviewState):
     role = state["job_role"]
+    context = state.get("company_context", "General Tech")
     messages = state["messages"]
     
     transcript = "--- INTERVIEW TRANSCRIPT START ---\n"
@@ -77,7 +80,7 @@ def run_evaluator_agent(state: InterviewState):
     transcript += "--- INTERVIEW TRANSCRIPT END ---"
 
     evaluator_prompt = [
-        SystemMessage(content=EVALUATOR_SYSTEM_PROMPT.format(role=role)),
+        SystemMessage(content=EVALUATOR_SYSTEM_PROMPT.format(role=role, context=context)),
         HumanMessage(content=f"Please analyze the following interview transcript:\n\n{transcript}")
     ]
     

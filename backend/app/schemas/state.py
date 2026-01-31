@@ -7,6 +7,7 @@ class InterviewState(TypedDict):
     Represents the state of the interview session.
     """
     messages: Annotated[List[BaseMessage], operator.add] 
-    job_role: str       
+    job_role: str
+    company_context: str       
     interview_step: int 
     feedback: Optional[str]      
