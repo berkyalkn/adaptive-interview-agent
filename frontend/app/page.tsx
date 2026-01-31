@@ -2,20 +2,37 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, MessageSquare, Mic, Radio } from "lucide-react";
+import { Briefcase, MessageSquare, Mic, Radio, Building2 } from "lucide-react";
 
 export default function LandingPage() {
   const router = useRouter();
   const [jobRole, setJobRole] = useState("");
+  const [companyContext, setCompanyContext] = useState("General Tech");
+
+
+const industries = [
+    "General Tech",
+    "Fintech / Banking",
+    "E-commerce / Retail",
+    "Healthcare / MedTech",
+    "Gaming / GameDev",
+    "Cybersecurity / Defense",
+    "Startup / SaaS",
+];
 
   const handleStart = (mode: "text" | "voice-ptt" | "voice-live") => {
     if (!jobRole.trim()) {
       alert("Please enter a job position first!");
       return;
     }
-    router.push(`/interview/${mode}?role=${encodeURIComponent(jobRole)}`);
-  };
 
+    const params = new URLSearchParams({
+      role: jobRole,
+      context: companyContext,
+    });
+    router.push(`/interview/${mode}?${params.toString()}`);
+  };
+  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="max-w-4xl w-full space-y-12">
@@ -28,24 +45,51 @@ export default function LandingPage() {
             AI Interview Simulator
           </h1>
           <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-            Master your interview skills with realistic AI-driven simulations before the big day.
+            Master your interview skills with realistic AI-driven simulations tailored to your industry.
           </p>
         </div>
 
-        <div className="max-w-md mx-auto">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Target Job Position
-          </label>
-          <input
-            type="text"
-            className="block w-full rounded-xl border-0 py-4 pl-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 text-lg"
-            placeholder="e.g. Senior Product Manager"
-            value={jobRole}
-            onChange={(e) => setJobRole(e.target.value)}
-          />
+        <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Target Job Position
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                className="block w-full rounded-xl border-0 py-4 pl-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 text-lg"
+                placeholder="e.g. Senior Java Dev"
+                value={jobRole}
+                onChange={(e) => setJobRole(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Industry / Context
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Building2 className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                value={companyContext}
+                onChange={(e) => setCompanyContext(e.target.value)}
+                className="block w-full rounded-xl border-0 py-4 pl-16 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 text-lg bg-white appearance-none"
+              >
+                {industries.map((ind) => (
+                  <option key={ind} value={ind}>
+                    {ind}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
           
           <button
             onClick={() => handleStart("text")}

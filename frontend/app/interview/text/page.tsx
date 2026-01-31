@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation"; 
+import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
-import { Briefcase } from "lucide-react";
+import { Briefcase, Building2 } from "lucide-react"; 
 
 import MessageBubble from "@/components/chat/MessageBubble";
 import TypingIndicator from "@/components/chat/TypingIndicator";
@@ -27,8 +27,11 @@ export default function TextInterviewPage() {
   const router = useRouter();
   
   const roleFromUrl = searchParams.get("role") || "";
+  const contextFromUrl = searchParams.get("context") || "General Tech"; 
 
-  const [jobRole, setJobRole] = useState(roleFromUrl);
+  const [jobRole] = useState(roleFromUrl);
+  const [companyContext] = useState(contextFromUrl);
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,17 +56,18 @@ export default function TextInterviewPage() {
     }
 
     if (!hasStarted.current) {
-      startInterview(roleFromUrl);
+      startInterview(roleFromUrl, contextFromUrl);
       hasStarted.current = true;
     }
-  }, [roleFromUrl, router]);
+  }, [roleFromUrl, contextFromUrl, router]);
 
-  
-  const startInterview = async (role: string) => {
+
+  const startInterview = async (role: string, context: string) => {
     setLoading(true);
     try {
       const res = await axios.post<ChatResponse>("http://localhost:8000/chat", {
         job_role: role,
+        company_context: context,
         messages: [],
         interview_step: 0,
       });
@@ -72,7 +76,7 @@ export default function TextInterviewPage() {
       setStep(res.data.interview_step);
     } catch (error) {
       console.error("Init Error:", error);
-      alert("Could not connect to Backend! Ensure Docker is running.");
+      alert("Backend Connection Failed!");
     } finally {
       setLoading(false);
     }
@@ -91,6 +95,7 @@ export default function TextInterviewPage() {
     try {
       const res = await axios.post<ChatResponse>("http://localhost:8000/chat", {
         job_role: jobRole,
+        company_context: companyContext, 
         user_input: userMsg.content,
         messages: messages,
         interview_step: step,
@@ -115,17 +120,26 @@ export default function TextInterviewPage() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 font-sans">
-
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Briefcase className="h-5 w-5 text-blue-600" />
+          
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Briefcase className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-sm font-bold text-gray-900 leading-tight">
+                  {jobRole}
+                </h1>
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <Building2 className="h-3 w-3" />
+                  <span>{companyContext}</span>
+                </div>
+              </div>
             </div>
-            <h1 className="text-lg font-bold text-gray-900">
-              Interview: <span className="text-blue-600">{jobRole}</span>
-            </h1>
           </div>
+
           <div className="text-xs font-medium px-3 py-1 bg-gray-100 rounded-full text-gray-600">
             Step: {step}/4
           </div>
