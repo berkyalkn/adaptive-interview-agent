@@ -161,7 +161,7 @@ export default function TextInterviewPage() {
           {feedback && (
             <FeedbackCard 
               feedback={feedback} 
-              onRestart={() => window.location.reload()} 
+              onRestart={() => router.push("/")} 
             />
           )}
 
