@@ -4,6 +4,7 @@ from langgraph.graph import StateGraph, END
 
 from app.utils.config import Config
 from app.schemas.state import InterviewState
+from app.schemas.actions import InterviewDecision
 from app.core.prompts import INTERVIEWER_SYSTEM_PROMPT, EVALUATOR_SYSTEM_PROMPT
 
 from google.oauth2 import service_account
@@ -23,7 +24,7 @@ llm = ChatGoogleGenerativeAI(
     model=Config.AGENT_MODEL_NAME,
     credentials=credentials, 
     project=Config.PROJECT_ID,
-    temperature=0.7,
+    temperature=0.4,
     max_output_tokens=2048,
     location="global",
     safety_settings=safety_settings
@@ -38,32 +39,57 @@ def start_interview(state: InterviewState):
 def run_interviewer_agent(state: InterviewState):
     role = state["job_role"]
     context = state.get("company_context", "General Tech")
-    current_step = state.get("interview_step", 0)
-    step = current_step + 1
+    current_step = state.get("interview_step", 0) 
     messages = state["messages"]
 
-    if step > 4:
-        bye_system_msg = """
-        The candidate has answered all 4 questions.
-        Your goal is ONLY to end the session politely.
-        INSTRUCTIONS:
-        1. Thank the candidate briefly.
-        2. DO NOT summarize.
-        3. APPEND EXACTLY: "INTERVIEW_FINISHED" to the end.
-        """
-        prompt = [SystemMessage(content=bye_system_msg)] + messages
-    else:
-        system_msg = INTERVIEWER_SYSTEM_PROMPT.format(role=role, step=step, context=context)
-        prompt = [SystemMessage(content=system_msg)] + messages
+    next_step_num = current_step + 1
+
+    system_msg = INTERVIEWER_SYSTEM_PROMPT.format(
+        role=role, 
+        context=context, 
+        current_q_num=current_step + 1,
+        next_q_num=next_step_num + 1
+    )
     
+    prompt = [SystemMessage(content=system_msg)] + messages
+
     try:
-        response = llm.invoke(prompt)
+        structured_llm = llm.with_structured_output(InterviewDecision)
+        decision = structured_llm.invoke(prompt)
+        
+        response_content = decision.response_text
+        action = decision.action
+
+        print(f"DEBUG: Current Step: {current_step} | Action: {action}")
+
+        final_step = current_step 
+
+        if action == "CONTINUE":
+            final_step = current_step + 1
+        
+        elif action == "CLARIFY":
+            final_step = current_step 
+            
+        elif action == "END":
+            if "INTERVIEW_FINISHED" not in response_content:
+                response_content += " INTERVIEW_FINISHED"
+            final_step = current_step + 1 
+
+        if final_step > 4:
+             if "INTERVIEW_FINISHED" not in response_content:
+                 response_content += " INTERVIEW_FINISHED"
+
+        return {
+            "messages": [AIMessage(content=response_content)], 
+            "interview_step": final_step
+        }
+
     except Exception as e:
         print(f"LLM Error: {e}")
-        response = AIMessage(content="I apologize, I missed that. Could you please repeat? (System Error)")
-
-    return {"messages": [response], "interview_step": step}
-
+        return {
+            "messages": [AIMessage(content="I apologize, I missed that. Could you please repeat?")],
+            "interview_step": current_step 
+        }
 
 def run_evaluator_agent(state: InterviewState):
     role = state["job_role"]
