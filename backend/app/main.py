@@ -1,10 +1,17 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, Form, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from langchain_core.messages import HumanMessage, AIMessage
+from app.services.audio import transcribe_audio, text_to_speech
+import shutil
+import json
+import os
+
 
 from app.core.graph import build_graph
+
+app_graph = build_graph()
 
 app = FastAPI(
     title="Adaptive Interview AI API",
@@ -75,7 +82,7 @@ async def chat_endpoint(request: ChatRequest):
             "feedback": ""
         }
         
-        output = await workflow.ainvoke(current_state)
+        output = await app_graph.ainvoke(current_state)
 
         last_msg = output["messages"][-1]
 
@@ -100,6 +107,91 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         print(f"API Error: {str(e)}") 
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/chat/audio")
+async def chat_audio_endpoint(
+    audio: UploadFile = File(...),
+    job_role: str = Form(...),
+    company_context: str = Form("General Tech"),
+    job_description: str = Form(""),
+    interview_step: int = Form(0),
+    messages: str = Form("[]") 
+):
+    temp_filename = f"temp_{audio.filename}"
+    with open(temp_filename, "wb") as buffer:
+        shutil.copyfileobj(audio.file, buffer)
+        
+    try:
+        user_text = await transcribe_audio(temp_filename)
+        print(f"User Said: {user_text}")
+        
+        if not user_text.strip():
+             return {
+                "user_input": "",
+                "response_text": "I couldn't hear you clearly. Could you please repeat?",
+                "response_audio": "", 
+                "interview_step": interview_step,
+                "is_finished": False,
+                "feedback": None
+            }
+
+        raw_history = json.loads(messages)
+        
+        history_objects = []
+        for msg in raw_history:
+            if msg.get("role") == "user":
+                history_objects.append(HumanMessage(content=msg.get("content", "")))
+            elif msg.get("role") == "ai":
+                history_objects.append(AIMessage(content=msg.get("content", "")))
+        
+        history_objects.append(HumanMessage(content=user_text))
+
+        current_state = {
+            "messages": history_objects, 
+            "job_role": job_role,
+            "company_context": company_context,
+            "job_description": job_description,
+            "interview_step": interview_step,
+            "feedback": ""
+        }
+        
+        result = await app_graph.ainvoke(current_state)
+        
+        last_msg = result["messages"][-1]
+        
+        if hasattr(last_msg, 'content'):
+            ai_response_text = last_msg.content
+        elif isinstance(last_msg, dict):
+            ai_response_text = last_msg.get('content', '')
+        else:
+            ai_response_text = str(last_msg)
+
+        clean_audio_text = ai_response_text.replace("INTERVIEW_FINISHED", "").strip()
+
+        new_step = result.get("interview_step", interview_step)
+        feedback = result.get("feedback", None)
+        
+        audio_base64 = ""
+        if not feedback and clean_audio_text:
+            audio_base64 = await text_to_speech(clean_audio_text)
+        
+        return {
+            "user_input": user_text,
+            "response_text": ai_response_text,
+            "response_audio": audio_base64,
+            "interview_step": new_step,
+            "is_finished": feedback is not None,
+            "feedback": feedback
+        }
+
+    except Exception as e:
+        print(f"Audio Endpoint Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
 
 @app.get("/health")
 async def health_check():
