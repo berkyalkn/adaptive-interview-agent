@@ -32,12 +32,19 @@ export default function VoiceInterviewPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const hasInitialized = useRef(false);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   useEffect(() => scrollToBottom(), [messages, isProcessing]);
 
   useEffect(() => {
+
+    if (hasInitialized.current) return;
+    
+    hasInitialized.current = true;
+    
     if (!jobRole) {
       router.push("/");
       return;
