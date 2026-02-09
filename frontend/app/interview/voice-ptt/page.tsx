@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
-import { Mic, Square, StopCircle, Volume2, Briefcase, Building2 } from "lucide-react";
+import { Mic, Building2 } from "lucide-react"; 
 
 import MessageBubble from "@/components/chat/MessageBubble";
 import FeedbackCard from "@/components/chat/FeedbackCard";
+import VoiceControls from "@/components/chat/VoiceControls"; 
 
 type Message = {
   role: "user" | "ai";
@@ -23,7 +24,7 @@ export default function VoiceInterviewPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false); 
-  const [isPlaying, setIsPlaying] = useState(false);      
+  const [isPlaying, setIsPlaying] = useState(false);       
   const [step, setStep] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -48,10 +49,15 @@ export default function VoiceInterviewPage() {
                 job_role: jobRole,
                 company_context: companyContext,
                 messages: [],
-                interview_step: 0
+                interview_step: 0,
+                generate_audio: true
             });
             setMessages([{ role: "ai", content: res.data.response_text }]);
             setStep(res.data.interview_step);
+
+            if (res.data.response_audio) {
+              playAudio(res.data.response_audio);
+          }
         } catch (error) {
             console.error("Init Error", error);
         }
@@ -75,12 +81,11 @@ export default function VoiceInterviewPage() {
       };
 
       mediaRecorder.onstop = handleAudioStop;
-      
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
       console.error("Microphone access denied:", err);
-      alert("Please allow microphone access to use this feature.");
+      alert("Please allow microphone access.");
     }
   };
 
@@ -111,25 +116,18 @@ export default function VoiceInterviewPage() {
       });
 
       const data = res.data;
-
       const userMsg: Message = { role: "user", content: data.user_input };
-      
       const aiMsg: Message = { role: "ai", content: data.response_text };
 
       setMessages((prev) => [...prev, userMsg, aiMsg]);
       setStep(data.interview_step);
 
-      if (data.is_finished && data.feedback) {
-        setFeedback(data.feedback);
-      }
-
-      if (data.response_audio) {
-        playAudio(data.response_audio);
-      }
+      if (data.is_finished && data.feedback) setFeedback(data.feedback);
+      if (data.response_audio) playAudio(data.response_audio);
 
     } catch (error) {
       console.error("Audio Upload Error:", error);
-      alert("Failed to process audio. Ensure backend is running.");
+      alert("Backend connection failed.");
     } finally {
       setIsProcessing(false);
     }
@@ -139,13 +137,9 @@ export default function VoiceInterviewPage() {
     try {
       const audioSrc = `data:audio/mp3;base64,${base64Audio}`;
       const audio = new Audio(audioSrc);
-      
       setIsPlaying(true);
       audio.play();
-      
-      audio.onended = () => {
-        setIsPlaying(false);
-      };
+      audio.onended = () => setIsPlaying(false);
     } catch (e) {
       console.error("Audio Playback Error:", e);
       setIsPlaying(false);
@@ -202,50 +196,13 @@ export default function VoiceInterviewPage() {
       </main>
 
       {!feedback && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-6">
-           <div className="max-w-xl mx-auto flex flex-col items-center gap-4">
-              
-              <div className="text-sm font-medium text-gray-500 h-6">
-                 {isRecording ? (
-                    <span className="text-red-500 animate-pulse flex items-center gap-2">
-                       <span className="h-2 w-2 bg-red-500 rounded-full" /> Recording...
-                    </span>
-                 ) : isProcessing ? (
-                    <span className="text-blue-500">Processing...</span>
-                 ) : isPlaying ? (
-                    <span className="text-green-500 flex items-center gap-2">
-                       <Volume2 className="h-4 w-4" /> AI Speaking...
-                    </span>
-                 ) : (
-                    "Ready to speak"
-                 )}
-              </div>
-
-              <button
-                 onClick={isRecording ? stopRecording : startRecording}
-                 disabled={isProcessing || isPlaying}
-                 className={`
-                    h-20 w-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-300
-                    ${isRecording 
-                       ? "bg-red-500 hover:bg-red-600 scale-110 ring-4 ring-red-200" 
-                       : "bg-blue-600 hover:bg-blue-700 hover:scale-105"
-                    }
-                    disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300
-                 `}
-              >
-                 {isRecording ? (
-                    <Square className="h-8 w-8 text-white fill-current" />
-                 ) : (
-                    <Mic className="h-8 w-8 text-white" />
-                 )}
-              </button>
-              
-              <p className="text-xs text-gray-400">
-                 {isRecording ? "Tap to send answer" : "Tap microphone to start speaking"}
-              </p>
-
-           </div>
-        </div>
+        <VoiceControls 
+            isRecording={isRecording}
+            isProcessing={isProcessing}
+            isPlaying={isPlaying}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+        />
       )}
     </div>
   );
