@@ -105,19 +105,16 @@ const industries = [
           </button>
 
           <button
-            disabled
-            className="group relative flex flex-col items-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-300 opacity-70 cursor-not-allowed"
+            onClick={() => handleStart("voice-ptt")}
+            className="group relative flex flex-col items-center p-8 bg-white rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-xl transition-all duration-300 text-center"
           >
-            <div className="h-14 w-14 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center mb-4">
+            <div className="h-14 w-14 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <Mic className="h-7 w-7" />
             </div>
-            <h3 className="text-xl font-bold text-gray-400 mb-2">Voice (Push-to-Talk)</h3>
-            <p className="text-gray-400 text-sm">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Voice (Push-to-Talk)</h3>
+            <p className="text-gray-500 text-sm">
               Speak your answers. Powered by Whisper STT and advanced TTS.
             </p>
-            <span className="absolute top-4 right-4 text-[10px] font-bold bg-gray-200 text-gray-500 px-2 py-1 rounded-full">
-              COMING SOON
-            </span>
           </button>
 
           <button
