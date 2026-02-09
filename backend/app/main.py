@@ -38,9 +38,11 @@ class ChatRequest(BaseModel):
     user_input: Optional[str] = None 
     messages: List[MessageSchema] = [] 
     interview_step: int = 0
+    generate_audio: bool = False
 
 class ChatResponse(BaseModel):
     response_text: str
+    response_audio: str | None = None
     interview_step: int
     is_finished: bool
     feedback: Optional[str] = None
@@ -96,9 +98,14 @@ async def chat_endpoint(request: ChatRequest):
             feedback_text = None
             
         is_finished = feedback_text is not None or "INTERVIEW_FINISHED" in raw_ai_text
+
+        audio_base64 = None
+        if request.generate_audio and clean_response_text:
+             audio_base64 = await text_to_speech(clean_response_text)
         
         return ChatResponse(
-            response_text=clean_response_text,
+            response_text=clean_response_text, 
+            response_audio=audio_base64,      
             interview_step=output.get("interview_step", 0),
             is_finished=is_finished,
             feedback=feedback_text
@@ -173,12 +180,12 @@ async def chat_audio_endpoint(
         feedback = result.get("feedback", None)
         
         audio_base64 = ""
-        if not feedback and clean_audio_text:
+        if not clean_audio_text:
             audio_base64 = await text_to_speech(clean_audio_text)
         
         return {
             "user_input": user_text,
-            "response_text": ai_response_text,
+            "response_text": clean_audio_text,
             "response_audio": audio_base64,
             "interview_step": new_step,
             "is_finished": feedback is not None,
