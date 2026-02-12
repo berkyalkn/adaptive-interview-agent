@@ -2,23 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, MessageSquare, Mic, Radio, Building2 } from "lucide-react";
+import { Briefcase, MessageSquare, Mic, Radio, Building2, Sparkles } from "lucide-react";
 
 export default function LandingPage() {
   const router = useRouter();
   const [jobRole, setJobRole] = useState("");
-  const [companyContext, setCompanyContext] = useState("General Tech");
+  const [companyContext, setCompanyContext] = useState("Software / SaaS");
 
-
-const industries = [
-    "General Tech",
+  const industries = [
+    "Software / SaaS",
     "Fintech / Banking",
-    "E-commerce / Retail",
-    "Healthcare / MedTech",
     "Gaming / GameDev",
+    "E-commerce / Retail",
     "Cybersecurity / Defense",
-    "Startup / SaaS",
-];
+    "Data / AI & Analytics",
+    "Healthcare / MedTech",
+    "Digital Marketing / AdTech",
+    "Creative Agencies / Design",
+    "Construction / Architecture",
+    "Manufacturing / Industry 4.0",
+    "Education / EdTech",
+    "Consulting / Strategy",
+    "Government / Public Sector"
+  ];
 
   const handleStart = (mode: "text" | "voice-ptt" | "voice-live") => {
     if (!jobRole.trim()) {
@@ -30,12 +36,13 @@ const industries = [
       role: jobRole,
       context: companyContext,
     });
+    
     router.push(`/interview/${mode}?${params.toString()}`);
   };
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-4xl w-full space-y-12">
+      <div className="max-w-5xl w-full space-y-12">
         
         <div className="text-center space-y-4">
           <div className="mx-auto h-20 w-20 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
@@ -49,7 +56,7 @@ const industries = [
           </p>
         </div>
 
-        <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -77,7 +84,7 @@ const industries = [
               <select
                 value={companyContext}
                 onChange={(e) => setCompanyContext(e.target.value)}
-                className="block w-full rounded-xl border-0 py-4 pl-16 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 text-lg bg-white appearance-none"
+                className="block w-full rounded-xl border-0 py-4 pl-12 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 text-lg bg-white appearance-none cursor-pointer"
               >
                 {industries.map((ind) => (
                   <option key={ind} value={ind}>
@@ -89,7 +96,7 @@ const industries = [
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
           
           <button
             onClick={() => handleStart("text")}
@@ -100,37 +107,35 @@ const industries = [
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Text Interview</h3>
             <p className="text-gray-500 text-sm">
-              Classic text-based chat. Answer questions using your keyboard.
+              Classic chat interface. Best for practicing technical definitions and writing code snippets.
             </p>
           </button>
 
           <button
             onClick={() => handleStart("voice-ptt")}
-            className="group relative flex flex-col items-center p-8 bg-white rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-xl transition-all duration-300 text-center"
+            className="group relative flex flex-col items-center p-8 bg-white rounded-2xl shadow-sm border border-gray-200 hover:border-purple-500 hover:shadow-xl transition-all duration-300 text-center"
           >
             <div className="h-14 w-14 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <Mic className="h-7 w-7" />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Voice (Push-to-Talk)</h3>
             <p className="text-gray-500 text-sm">
-              Speak your answers. Powered by Whisper STT and advanced TTS.
+              Control the flow manually. Press to speak, release to send. Good for noisy environments.
             </p>
           </button>
 
           <button
-            disabled
-            className="group relative flex flex-col items-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-300 opacity-70 cursor-not-allowed"
+            onClick={() => handleStart("voice-live")}
+            className="group relative flex flex-col items-center p-8 bg-white rounded-2xl shadow-md border-2 border-rose-100 hover:border-rose-500 hover:shadow-2xl hover:scale-105 transition-all duration-300 text-center"
           >
-            <div className="h-14 w-14 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center mb-4">
+
+            <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-rose-600 group-hover:text-white transition-colors animate-pulse group-hover:animate-none">
               <Radio className="h-7 w-7" />
             </div>
-            <h3 className="text-xl font-bold text-gray-400 mb-2">Live Real-time</h3>
-            <p className="text-gray-400 text-sm">
-              Seamless, real-time conversational experience via WebSockets.
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Live Real-time</h3>
+            <p className="text-gray-500 text-sm">
+              Hands-free, interruptible conversation. The most realistic interview simulation experience.
             </p>
-            <span className="absolute top-4 right-4 text-[10px] font-bold bg-gray-200 text-gray-500 px-2 py-1 rounded-full">
-              COMING SOON
-            </span>
           </button>
 
         </div>
