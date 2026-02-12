@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Form, File
+from fastapi import FastAPI, HTTPException, UploadFile, Form, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -7,6 +7,9 @@ from app.services.audio import transcribe_audio, text_to_speech
 import shutil
 import json
 import os
+import base64
+import tempfile
+import asyncio
 
 
 from app.core.graph import build_graph
@@ -21,7 +24,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], 
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"], 
     allow_headers=["*"],
@@ -199,6 +202,105 @@ async def chat_audio_endpoint(
     finally:
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
+
+
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    print("🔌 WebSocket Connected (Real-Time Mode)")
+    
+    # Her bağlantı için bir state (hafıza) tutalım
+    chat_history = [] 
+    
+    try:
+        while True:
+            # 1. Frontend'den Mesaj Bekle (JSON Formatında)
+            # Beklenen format: { "type": "audio", "payload": "BASE64_STRING", "job_role": "...", ... }
+            data = await websocket.receive_json()
+            
+            if data.get("type") == "audio" and data.get("payload"):
+                print("🎤 Audio received via WS...")
+                
+                # A. Base64 Sesi Dosyaya Çevir
+                try:
+                    audio_bytes = base64.b64decode(data["payload"])
+                except Exception:
+                    print("⚠️ Base64 decode error")
+                    continue
+
+                # 🔥 GÜVENLİK DUVARI: Dosya boyutu kontrolü (Bayt cinsinden)
+                # 3072 bytes = 3KB. Bunun altı muhtemelen sadece gürültü veya boş header'dır.
+                file_size = len(audio_bytes)
+                if file_size < 3000: 
+                    print(f"🔇 Ignored small audio/noise packet ({file_size} bytes)")
+                    continue  # Döngünün başına dön, Whisper'a gitme!
+                
+                # Geçici dosya oluştur
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_audio:
+                    temp_audio.write(audio_bytes)
+                    temp_audio_path = temp_audio.name
+                
+                try:
+                    # B. Whisper ile Transkript (STT)
+                    user_text = await transcribe_audio(temp_audio_path)
+                    print(f"🗣️ Transcribed: {user_text}")
+                    
+                    # Eğer ses boşsa veya anlaşılamadıysa atla
+                    if not user_text or len(user_text.strip()) < 2:
+                        continue
+
+                    # C. LangGraph Ajanını Çalıştır (Beyin)
+                    # Not: Gerçek senaryoda buradaki state yönetimini iyileştireceğiz
+                    current_state = {
+                        "messages": chat_history + [HumanMessage(content=user_text)],
+                        "job_role": data.get("job_role", "Developer"),
+                        "company_context": data.get("company_context", "Tech"),
+                        "job_description": "",
+                        "interview_step": data.get("interview_step", 1),
+                        "feedback": ""
+                    }
+                    
+                    output = await app_graph.ainvoke(current_state)
+                    
+                    last_msg = output["messages"][-1]
+                    ai_text = extract_text(last_msg.content)
+
+                    feedback_text = output.get("feedback", None)
+                    
+                    # Chat geçmişini güncelle
+                    chat_history = output["messages"]
+                    
+                    # Temizlik (Etiketleri kaldır)
+                    clean_text = ai_text.replace("INTERVIEW_FINISHED", "").strip()
+                    print(f"🤖 AI Response: {clean_text}")
+
+                    # D. Cevabı Sese Çevir (TTS)
+                    audio_base64 = await text_to_speech(clean_text)
+                    
+                    # E. Frontend'e Geri Yolla
+                    response_payload = {
+                        "type": "audio",
+                        "text": clean_text,
+                        "audio": audio_base64,
+                        "interview_step": output.get("interview_step", 1),
+                        "is_finished": "INTERVIEW_FINISHED" in ai_text or feedback_text is not None,
+                        "feedback": feedback_text # <--- BU EKSİKTİ
+                    }
+                    
+                    await websocket.send_json(response_payload)
+
+                except Exception as e:
+                    print(f"❌ Processing Error: {e}")
+                    await websocket.send_json({"type": "error", "message": str(e)})
+                
+                finally:
+                    # Geçici dosyayı sil
+                    if os.path.exists(temp_audio_path):
+                        os.unlink(temp_audio_path)
+
+    except WebSocketDisconnect:
+        print("🔌 WebSocket Disconnected")
+
 
 @app.get("/health")
 async def health_check():
