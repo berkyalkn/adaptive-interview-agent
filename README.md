@@ -5,6 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
+![WebSockets](https://img.shields.io/badge/WebSockets-010101?style=for-the-badge&logo=socket.io&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
@@ -13,42 +14,29 @@
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
 ![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white)
 
-A realistic, voice-enabled technical interview simulator powered by **Multi-Agent Orchestration**.
+A realistic, **real-time** technical interview simulator powered by **Multi-Agent Orchestration** and **WebSocket Streaming**.
 
-This application is designed to help candidates practice for job interviews by simulating real-world scenarios. It orchestrates a complex interaction between a **Next.js Frontend** and a **FastAPI Backend**, leveraging **LangGraph** to manage conversation state and **OpenAI/Google Gemini** models for intelligent, context-aware dialogue. It is designed to be modular, scalable, and fully containerized via **Docker**.
+This application simulates high-pressure job interviews by orchestrating a complex interaction between a **Next.js Frontend** and a **FastAPI Backend**. It leverages **WebSockets** for low-latency audio streaming, **Voice Activity Detection (VAD)** for natural turn-taking, and **LangGraph** to manage conversation state. It is designed to be modular, scalable, and fully containerized via **Docker**.
 
 ---
 
-## Key Technical Features
+##  Key Technical Features
 
-- **Multi-Modal Interaction:** Supports both Text-based Chat and Voice Push-to-Talk (PTT) modes seamlessly.
+#### Tri-Modal Interview Experience
+The application supports three distinct ways to practice, catering to different environments and stress levels:
+1. **Text Mode:** Classic chat interface for quiet environments or focusing strictly on technical definitions.
+2. **Voice-PTT (Push-to-Talk):** Uses HTTP REST. You control exactly when to record and send your audio, giving you time to think.
+3. **Voice-Live (Real-Time):** Uses WebSockets and browser-based **VAD**. It listens automatically and detects when you stop speaking, creating a hands-free, zero-click conversational flow with ultra-low latency.
 
-- **Context-Awareness:** The system adapts its persona based on:
+#### Intelligent Core
+- **Context-Awareness:** The system adapts its persona based on the Job Role, Industry, and a parsed Job Description.
+- **Adaptive Interview Flow (LangGraph):** Built on a state machine. The agent can clarify questions if you don't understand, rather than blindly moving to the next script line.
 
-  + **Job Role:** (e.g., Junior Python Developer)
+#### Multi-Agent Architecture
+- **Interviewer Agent:** Role-plays as a hiring manager, adapting tone based on the selected industry.
+- **Evaluator Agent:** A separate agent that silently analyzes the entire transcript after the interview to generate a structured scorecard.
 
-  + **Industry:** (e.g., Healthcare, E-commerce)
-
-  + **Job Description:** (Optional) Can parse raw JD text to generate specific questions.
-
-- **Adaptive Interview Flow (LangGraph):** The core logic is built on a state machine, not a linear script.
-
-  + **Smart Clarification:** If a candidate says "I don't understand," the agent rephrases the question instead of skipping it.
-
-  + **Dynamic Progression:** Moves to the next stage only when a valid answer is provided
-
-- **Multi-Agent Architecture:**
-
-  + **Interviewer Agent:** Role-plays as a hiring manager, adapting tone based on the selected industry (e.g., "Fast-paced" for Startups vs. "Formal" for Banking).
-
-  + **Evaluator Agent:** A separate agent that silently analyzes the entire transcript after the interview to generate a structured scorecard.
-
-- **Voice Experience (Push-to-Talk):**
-
-   + **Hearing (STT):** Powered by OpenAI Whisper for high-accuracy speech transcription, optimized for technical jargon (e.g., SQL, Docker, React).
-
-  + **Speaking (TTS):** Uses OpenAI TTS to provide natural-sounding verbal feedback and questions.
-
+---
 
 ## Architecture Diagram
 
@@ -56,27 +44,28 @@ The system operates on a Human-in-the-loop agentic workflow managed by LangGraph
 
 ```mermaid
 graph TD
-    User((User)) <-->|Voice/Text| Frontend[Next.js Frontend]
-    Frontend <-->|HTTP REST| API[FastAPI Backend]
+    User((User)) <-->|Microphone/Speaker| Frontend[Next.js Frontend]
+    
+    subgraph "Real-Time Layer (WebSocket)"
+        Frontend -- "Audio Stream (Bytes)" --> WS_Endpoint[FastAPI WebSocket]
+        WS_Endpoint -- "VAD Signals" --> Frontend
+        WS_Endpoint <-->|Stream| Brain{LLM Core}
+    end
 
-    subgraph "Backend Agent Graph"
-        Start((Start)) --> Interviewer
-        
-        Interviewer[Interviewer Agent] <-->|LLM| Brain{Gemini}
-        
-        Interviewer -- "User Answered" --> Check{Analyze Intent}
-        Check -- "Clarify Needed" --> Interviewer
-        Check -- "Valid Answer" --> Interviewer
-        
-        Interviewer -- "Interview Finished" --> Evaluator[Evaluator Agent]
-        Evaluator -->|Generate Report| End((End))
+    subgraph "Logic Layer (LangGraph)"
+        Brain --> Interviewer[Interviewer Agent]
+        Interviewer -- "Context Update" --> Check{Analyze Intent}
+        Check -- "Next Question" --> Interviewer
+        Interviewer -- "Session End" --> Evaluator[Evaluator Agent]
     end
 
     subgraph "Audio Services"
-        API -- "Audio File" --> Whisper[OpenAI Whisper]
-        Whisper -- "Text" --> API
-        API -- "Response Text" --> TTS[OpenAI TTS]
+        WS_Endpoint -- "Audio Buffer" --> Whisper[OpenAI Whisper]
+        Brain -- "Text Stream" --> TTS[OpenAI TTS]
+        TTS -- "Audio Stream" --> WS_Endpoint
     end
+    
+    Evaluator -->|JSON Report| DB[(Database/State)]
 ```
 
 ---
@@ -98,6 +87,9 @@ graph TD
 | | **Axios** | Handling HTTP requests, optimized for multipart audio uploads. |
 | | **TypeScript** | Ensures type safety for component props and API responses. |
 | | **Tailwind CSS** | Utility-first CSS framework for rapid and responsive UI styling. |
+| **Communication** | **WebSockets & REST** | Hybrid API approach for different interaction modes. |
+| | **VAD (Voice Activity Detection)** | Handles turn-taking logic automatically in Live mode. |
+
 
 
 ---
@@ -164,7 +156,7 @@ Customize your simulation before starting:
 -   **Target Job Role:** Enter the specific position (e.g., *Senior Java Developer*).
 -   **Industry Context:** Select the domain (e.g., *Fintech / Banking* to focus on security/transactions).
 -   **Job Description (Optional):** Paste a real job listing text. The AI will parse this to ask specific questions about the requirements mentioned in the ad.
--   **Select Mode:** Choose between **Text Interview** or **Voice (Push-to-Talk)**.
+-   **Select Mode:** Choose between **Text Interview**, **Voice (Push-to-Talk)** or **Voice (Live)**.
 
 ### 2. The Interview Session
 The experience adapts based on your chosen mode:
@@ -181,6 +173,11 @@ The experience adapts based on your chosen mode:
     2.  **Speak:** Click (or hold) the **Microphone Button** to record your answer.
     3.  **Response:** The system transcribes your audio, processes the answer, and responds verbally using TTS.
 -   **Best For:** Simulating real interview pressure, improving fluency, and practicing spoken English.
+
+#### Voice-Live Mode (Real-Time)
+-   **Interface:** Interface: A minimal, immersive UI featuring a dynamic audio visualizer that reacts to speech, removing text distractions to focus purely on the conversation.
+-   **Interaction:** A hands-free experience. The system listens automatically. When you finish your sentence, the **VAD** detects the silence and instantly streams your answer to the backend.
+-   **Best For:** Simulating the exact pressure, pace, and natural flow of a real video interview (Zoom/Meet).
 
 ### 3. The Evaluation (Report Card)
 Regardless of the mode, the **Evaluator Agent** analyzes the entire transcript after the final question:
