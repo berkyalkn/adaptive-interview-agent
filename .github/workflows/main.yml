@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write 
 
 jobs:
   backend-quality:
@@ -20,6 +21,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
+          cache: 'pip'
           
       - name: Install Dependencies
         run: |
@@ -32,6 +34,18 @@ jobs:
         run: |
           cd backend
           ruff check . --exit-zero 
+
+
+      - name: Security Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './backend'
+          hide-progress: false
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
 
   frontend-quality:
     runs-on: ubuntu-latest
@@ -59,7 +73,17 @@ jobs:
         run: |
           cd frontend
           npm run build 
-
+      
+      - name: Security Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './frontend'
+          hide-progress: false
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
 
   build-and-push:
     needs: [backend-quality, frontend-quality]
@@ -76,12 +100,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
       - name: Build and push Backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/interview-backend:latest
+          cache-from: type=gha 
+          cache-to: type=gha,mode=max
           
       - name: Build and push Frontend
         uses: docker/build-push-action@v5
@@ -89,3 +118,5 @@ jobs:
           context: ./frontend
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/interview-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

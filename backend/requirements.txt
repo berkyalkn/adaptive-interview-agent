@@ -10,3 +10,5 @@ google-auth
 google-cloud-aiplatform
 openai>=1.0.0
 python-multipart
+pytest
+httpx
