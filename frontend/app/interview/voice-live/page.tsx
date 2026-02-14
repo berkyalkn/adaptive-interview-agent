@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useVAD } from "@/app/hooks/useVAD";
 import { Mic, PhoneOff, Building2, User, Volume2, Sparkles } from "lucide-react"; 
@@ -16,7 +16,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
-export default function LiveInterviewPage() {
+function LiveInterviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -176,7 +176,7 @@ export default function LiveInterviewPage() {
 
                 <div className="max-w-3xl w-full text-center mb-12 z-10 min-h-[100px] flex items-center justify-center">
                 <p className={`text-2xl md:text-3xl font-medium leading-relaxed transition-all duration-500 ${isAiTalking ? "text-gray-900" : "text-gray-400"}`}>
-                    "{aiText}"
+                    {aiText}
                 </p>
                 </div>
 
@@ -239,3 +239,11 @@ export default function LiveInterviewPage() {
     </div>
   );
 }
+
+export default function LiveInterviewPage() {
+    return (
+      <Suspense fallback={<div className="h-screen bg-gray-900 flex items-center justify-center text-white">Initializing connection...</div>}>
+        <LiveInterviewContent />
+      </Suspense>
+    );
+  }

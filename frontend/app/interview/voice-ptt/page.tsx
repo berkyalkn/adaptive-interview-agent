@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { Mic, Building2 } from "lucide-react"; 
@@ -14,7 +14,7 @@ type Message = {
   content: string;
 };
 
-export default function VoiceInterviewPage() {
+function VoicePTTContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -71,7 +71,7 @@ export default function VoiceInterviewPage() {
     };
     
     initInterview();
-  }, []);
+  },[jobRole, companyContext, router]);
 
 
   const startRecording = async () => {
@@ -212,5 +212,13 @@ export default function VoiceInterviewPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function VoiceInterviewPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">Loading voice mode...</div>}>
+      <VoicePTTContent />
+    </Suspense>
   );
 }

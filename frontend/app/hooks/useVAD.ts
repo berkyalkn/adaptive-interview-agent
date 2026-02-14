@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 
 interface VADOptions {
   onSpeechStart?: () => void;
@@ -12,8 +12,8 @@ export function useVAD({
   onSpeechStart,
   onSpeechEnd,
   onVolumeChange,
-  minVolume = 0.1,
-  silenceDuration = 2000,
+  minVolume = 0.05,
+  silenceDuration = 1500,
 }: VADOptions) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -28,7 +28,13 @@ export function useVAD({
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  const startRecording = () => {
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  const startRecording = useCallback(() => {
     if (!streamRef.current) return;
     
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
@@ -67,19 +73,14 @@ export function useVAD({
     } catch (e) {
       console.error("Recorder start error:", e);
     }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-  };
+  }, [onSpeechEnd]); 
 
   const start = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const audioContext = new AudioContextClass();
       if (audioContext.state === "suspended") await audioContext.resume();
@@ -106,7 +107,6 @@ export function useVAD({
         if (onVolumeChange) onVolumeChange(volume);
 
         if (volume > minVolume) {
-          
           if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = null;
@@ -125,9 +125,7 @@ export function useVAD({
             silenceTimerRef.current = setTimeout(() => {
               isSpeakingRef.current = false;
               setIsSpeaking(false);
-              
               stopRecording();
-              
               silenceTimerRef.current = null;
             }, silenceDuration);
           }
@@ -141,7 +139,7 @@ export function useVAD({
     } catch (error) {
       console.error("VAD Start Error:", error);
     }
-  }, [minVolume, silenceDuration]);
+  }, [minVolume, silenceDuration, onVolumeChange, onSpeechStart, startRecording, stopRecording]); 
 
   const stop = useCallback(() => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -155,7 +153,7 @@ export function useVAD({
     setIsListening(false);
     setIsSpeaking(false);
     isSpeakingRef.current = false;
-  }, []);
+  }, [stopRecording]);
 
   return { isListening, isSpeaking, start, stop };
 }

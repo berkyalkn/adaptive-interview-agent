@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { Briefcase, Building2 } from "lucide-react"; 
@@ -22,7 +22,7 @@ type ChatResponse = {
   feedback: string | null;
 };
 
-export default function TextInterviewPage() {
+function TextInterviewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -178,5 +178,14 @@ export default function TextInterviewPage() {
         />
       )}
     </div>
+  );
+}
+
+
+export default function TextInterviewPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading interview...</div>}>
+      <TextInterviewContent />
+    </Suspense>
   );
 }

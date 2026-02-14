@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, MessageSquare, Mic, Radio, Building2, Sparkles } from "lucide-react";
+import { Briefcase, MessageSquare, Mic, Radio, Building2} from "lucide-react";
 
 export default function LandingPage() {
   const router = useRouter();
