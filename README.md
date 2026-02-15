@@ -16,7 +16,7 @@
 
 A realistic, **real-time** technical interview simulator powered by **Multi-Agent Orchestration** and **WebSocket Streaming**.
 
-This application simulates high-pressure job interviews by orchestrating a complex interaction between a **Next.js Frontend** and a **FastAPI Backend**. It leverages **WebSockets** for low-latency audio streaming, **Voice Activity Detection (VAD)** for natural turn-taking, and **LangGraph** to manage conversation state. It is designed to be modular, scalable, and fully containerized via **Docker**.
+This application simulates high-pressure job interviews by orchestrating a complex interaction between a **Next.js Frontend** and a **FastAPI Backend**. It leverages **WebSockets** for low-latency audio streaming, **Voice Activity Detection (VAD)** for natural turn-taking, and **LangGraph** to manage conversation state. It is designed to be modular, scalable, and fully containerized via **Docker** and features a **CI/CD pipeline**.
 
 ---
 
@@ -35,6 +35,11 @@ The application supports three distinct ways to practice, catering to different 
 #### Multi-Agent Architecture
 - **Interviewer Agent:** Role-plays as a hiring manager, adapting tone based on the selected industry.
 - **Evaluator Agent:** A separate agent that silently analyzes the entire transcript after the interview to generate a structured scorecard.
+
+#### DevOps
+-   **Automated Quality Gates:** Linting (ESLint, Ruff) and Type Checking on every push.
+-   **Security First:** Automated vulnerability scanning (Trivy) for dependencies.
+-   **Continuous Delivery:** Auto-builds and publishes Docker images to GitHub Container Registry (GHCR).
 
 ---
 
@@ -70,11 +75,25 @@ graph TD
 
 ---
 
+### CI/CD Pipeline
+
+The project utilizes **GitHub Actions** to ensure code quality and security.
+
+| Stage | Tools Used| Description |
+| :--- | :--- | :--- |
+| **Quality** | **ESLint, Ruff** | Enforces code standards for Backend logic.|
+| **Security** | **Trivy** | Scans container images and dependencies for CVE vulnerabilities. |
+| **Build** | **Docker Buildx** | Builds multi-platform Docker images with caching enabled. |
+| **Delivery** | **GHCR** | Pushes production-ready images to GitHub Container Registry. |
+
+---
+
 ## Tech Stack
 
 | Category | Tool/Library | Purpose |
 | :--- | :--- | :--- |
 | **Infrastructure** | **Docker & Compose** | Containerization of Frontend and Backend for consistent dev/prod environments. |
+| | **GitHub Actions** | CI/CD Automation for testing and publishing.|
 | **AI & Orchestration** | **LangChain** | Core framework for managing LLM chains, prompts, and memory. |
 | | **LangGraph** | Orchestrates the stateful, cyclic workflow between Interviewer and Evaluator agents. |
 | | **OpenAI Whisper** | High-accuracy Speech-to-Text (STT) model for transcribing candidate audio. |
@@ -91,21 +110,49 @@ graph TD
 | | **VAD (Voice Activity Detection)** | Handles turn-taking logic automatically in Live mode. |
 
 
-
 ---
 
 ## Installation & Setup
 
-Prerequisites: `Docker Desktop` installed and a Google Cloud Project with Vertex AI API enabled.
+You can run this project in two ways: using the pre-built Docker images or building from source.
 
-**1. Clone the Repository:**
+#### Option A: Quick Start (Using Docker Images)
+
+No coding required. Runs the latest stable version.
+
+**1.** Create a `docker-compose.yml` file:
+
+```yaml
+version: '3.8'
+services:
+  backend:
+    image: ghcr.io/berkyalkn/adaptive-interview-agent/interview-backend:latest
+    ports:
+      - "8000:8000"
+    env_file: .env
+  frontend:
+    image: ghcr.io/berkyalkn/adaptive-interview-agent/interview-frontend:latest
+    ports:
+      - "3000:3000"
+```
+
+**2.** Create a `.env` file with your API keys (see Configuration below).
+
+**3.** Run `docker-compose up`.
+
+
+#### Option B: Build from Source (For Developers)
+
+For developers who want to modify the code.
+
+**1.** Clone the Repository:
 
 ```bash
 git clone https://github.com/berkyalkn/adaptive-interview-agent
 cd adaptive-interview-agent
 ```
 
-**2. Google Cloud Credentials:**
+**2.** Google Cloud Credentials:
 
 - Go to the Google Cloud Console > IAM & Admin > Service Accounts.
 
@@ -115,21 +162,16 @@ cd adaptive-interview-agent
 
 - Rename the file to `google_credentials.json` and move it into the `backend/` directory.
 
-**3. Configure Environment:**
+**3.** Configure Environment:
 
-Create a `.env` file in the `backend/` directory with the following variables:
-
+Create a `.env` file in `backend/`:
 
 ```bash
-# OpenAI API Key (For Whisper STT & TTS)
 OPENAI_API_KEY="sk-..."
-
-# Google Cloud Configuration (Vertex AI)
 GOOGLE_CLOUD_PROJECT="your-project-id"
 GOOGLE_APPLICATION_CREDENTIALS="google_credentials.json"
 ```
 
-- **Note:** Since we are using Docker, placing the JSON file in backend/ ensures it is mounted correctly into the container.
 
 **4. Run with Docker:**
 
@@ -175,7 +217,7 @@ The experience adapts based on your chosen mode:
 -   **Best For:** Simulating real interview pressure, improving fluency, and practicing spoken English.
 
 #### Voice-Live Mode (Real-Time)
--   **Interface:** Interface: A minimal, immersive UI featuring a dynamic audio visualizer that reacts to speech, removing text distractions to focus purely on the conversation.
+-   **Interface:** A minimal, immersive UI featuring a dynamic audio visualizer that reacts to speech, removing text distractions to focus purely on the conversation.
 -   **Interaction:** A hands-free experience. The system listens automatically. When you finish your sentence, the **VAD** detects the silence and instantly streams your answer to the backend.
 -   **Best For:** Simulating the exact pressure, pace, and natural flow of a real video interview (Zoom/Meet).
 
